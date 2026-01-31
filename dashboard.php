@@ -307,12 +307,12 @@ if (isset($pdo)) {
 
         /* Hero Section */
         .hero-section {
-            min-height: 85vh;
+            min-height: 75vh;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 110px 7% 60px;
-            gap: 60px;
+            padding: 80px 7% 40px;
+            gap: 40px;
             background: radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 40%),
                         radial-gradient(circle at 10% 80%, rgba(245, 158, 11, 0.04) 0%, transparent 30%);
         }
@@ -332,24 +332,26 @@ if (isset($pdo)) {
             border-radius: 30px;
             font-size: 12px;
             font-weight: 800;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
         .hero-content-left h1 {
-            font-size: 4.8rem;
+            font-size: 3.2rem;
             font-weight: 800;
-            line-height: 1.05;
-            margin-bottom: 24px;
-            color: var(--primary-color);
-            letter-spacing: -3px;
+            line-height: 1.1;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #334155 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1.5px;
         }
 
         .hero-content-left p {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             color: var(--text-secondary);
-            margin-bottom: 40px;
+            margin-bottom: 20px;
             font-weight: 400;
         }
 
@@ -357,14 +359,14 @@ if (isset($pdo)) {
             display: block;
             font-weight: 600;
             color: var(--secondary-color);
-            margin-bottom: 30px;
-            font-size: 1.1rem;
+            margin-bottom: 20px;
+            font-size: 1rem;
         }
 
         .hero-buttons {
             display: flex;
             gap: 20px;
-            margin-bottom: 60px;
+            margin-bottom: 40px;
         }
 
         .btn-primary, .btn-submit, .checkout-btn {
@@ -428,26 +430,51 @@ if (isset($pdo)) {
         /* Stats */
         .hero-stats {
             display: flex;
-            gap: 50px;
-            padding-top: 40px;
-            border-top: 1px solid var(--border-color);
+            gap: 40px;
+            padding-top: 30px;
+            margin-top: 10px;
         }
 
         .stat-card {
             display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-icon {
+            width: 45px;
+            height: 45px;
+            background: rgba(15, 23, 42, 0.05);
+            color: var(--primary-color);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover .stat-icon {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-3px);
+        }
+
+        .stat-info {
+            display: flex;
             flex-direction: column;
-            gap: 4px;
         }
 
         .stat-card .value {
-            font-size: 2.2rem;
+            font-size: 1.5rem;
             font-weight: 800;
             color: var(--primary-color);
-            letter-spacing: -1.5px;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
         }
 
         .stat-card .label {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: var(--text-secondary);
             font-weight: 700;
             text-transform: uppercase;
@@ -461,10 +488,10 @@ if (isset($pdo)) {
         }
 
         .catalog-section h2 {
-            font-size: 3.2rem;
+            font-size: 2.2rem;
             text-align: center;
-            margin-bottom: 16px;
-            letter-spacing: -2px;
+            margin-bottom: 12px;
+            letter-spacing: -1px;
         }
 
         .subtitle {
@@ -629,10 +656,10 @@ if (isset($pdo)) {
         }
 
         .about-section h2 { 
-            font-size: 3.5rem; 
+            font-size: 2.4rem; 
             text-align: center; 
-            margin-bottom: 20px; 
-            letter-spacing: -2px;
+            margin-bottom: 12px; 
+            letter-spacing: -1px;
         }
 
         .about-section .tagline { 
@@ -746,7 +773,7 @@ if (isset($pdo)) {
 
         /* Contact Section */
         .contact-section { padding: 80px 7%; background: var(--surface-color); }
-        .contact-section h2 { font-size: 3.2rem; text-align: center; margin-bottom: 16px; letter-spacing: -2px; }
+        .contact-section h2 { font-size: 2.2rem; text-align: center; margin-bottom: 12px; letter-spacing: -1px; }
         .contact-section .tagline { text-align: center; color: var(--text-secondary); margin-bottom: 50px; font-size: 1.25rem; max-width: 800px; margin-left: auto; margin-right: auto; }
         
         .contact-content-area {
@@ -1326,7 +1353,7 @@ if (isset($pdo)) {
         <?php if ($profile_incomplete): ?>
             <div id="profileCompletionPopup" class="profile-popup">
                 <i class="fas fa-exclamation-circle popup-icon"></i>
-                <p>Profil lo belum lengkap nih! <a href="profile.php">Lengkapi sekarang</a> biar belanja makin asik.</p>
+                <p>Profil Anda belum lengkap. <a href="profile.php">Lengkapi sekarang</a> untuk mendapatkan pengalaman belanja terbaik.</p>
                 <button class="close-popup-btn">&times;</button>
             </div>
         <?php endif; ?>
@@ -1335,28 +1362,40 @@ if (isset($pdo)) {
                 <div class="trending-badge">
                     <i class="fas fa-chart-line"></i> Trending Fashion
                 </div>
-                <h1>Desain Kekinian Kualitas Impian</h1>
-                <p>Pusat Fashion Kekinian untuk Gaya Tanpa Batas.</p>
-                <span class="highlighted-text">Lihat Apa yang Sedang Tren Pada Katalog Keren Ini!</span>
+                <h1>Elegansi Modern dalam Setiap Jahitan</h1>
+                <p>Destinasi utama untuk fashion modern yang dirancang untuk menyempurnakan penampilan Anda setiap hari.</p>
+                <span class="highlighted-text">Jelajahi Tren Terbaru Musim Ini</span>
                 <div class="hero-buttons">
                     <a href="#katalog" class="btn-primary"><i class="fas fa-bag-shopping"></i> Lihat Koleksi</a>
-                    <a href="#cerita-kami" class="btn-outline"><i class="fas fa-info-circle"></i> Kenalan dulu sama brand-nya</a>
+                    <a href="#cerita-kami" class="btn-outline"><i class="fas fa-info-circle"></i> Tentang Wearnity</a>
                 </div>
                 <div class="hero-stats">
                     <div class="stat-card">
-                        <i class="fas fa-cube"></i>
-                        <div class="value">1.000+</div>
-                        <div class="label">Produk Terjual</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-cube"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="value">1.000+</div>
+                            <div class="label">Produk Terjual</div>
+                        </div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-user-check"></i>
-                        <div class="value">800+</div>
-                        <div class="label">Pelanggan Puas</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="value">800+</div>
+                            <div class="label">Pelanggan Puas</div>
+                        </div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-star icon-star"></i>
-                        <div class="value">4.9</div>
-                        <div class="label">Rating</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-star" style="color: var(--accent-color);"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="value">4.9</div>
+                            <div class="label">Rating</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1365,8 +1404,8 @@ if (isset($pdo)) {
             </div>
         </section>
         <section id="katalog" class="catalog-section">
-            <h2>Koleksi Katalog Terbaru</h2>
-            <p class="subtitle">Temukan style kaos yang cocok denganmu.</p>
+            <h2>Koleksi Katalog Eksklusif</h2>
+            <p class="subtitle">Temukan gaya busana yang mencerminkan jati diri Anda.</p>
 
             <div class="product-cards-container">
                 <?php if (!empty($products)): ?>
@@ -1437,7 +1476,7 @@ if (isset($pdo)) {
                     <span class="brand-insight">Kisah di Balik Layar</span>
                     <h3>WEARNITY BY THANKSINSOMNIA</h3>
                     <p>WEARNITY lahir sebagai wadah ekspresi jati diri melalui fashion. Kami tidak hanya menciptakan pakaian; kami merajut kepercayaan diri ke dalam setiap serat kain melalui kolaborasi erat dengan kreator lokal terbaik.</p>
-                    <p>Hadir untuk memastikan lo tampil gaya, otentik, dan bangga menjadi diri sendiri tanpa harus sekadar mengikuti arus tren musiman.</p>
+                    <p>Hadir untuk memastikan Anda tampil elegan, otentik, dan bangga menjadi diri sendiri tanpa harus sekadar mengikuti arus tren musiman.</p>
                 </div>
             </div>
 
@@ -1445,7 +1484,7 @@ if (isset($pdo)) {
         </section>
         <section id="hubungi-kami" class="contact-section">
             <h2>Hubungi Kami</h2>
-            <p class="tagline">Ada pertanyaan atau mau kolaborasi? Kami siap mendengarkan pesan lo.</p>
+            <p class="tagline">Ada pertanyaan atau ingin berkolaborasi? Kami siap mendengarkan pesan Anda.</p>
 
             <div class="contact-buttons">
                 <button class="btn active" data-target="kirim-pesan"><i class="fas fa-paper-plane"></i> Kirim Pesan</button>
@@ -1456,7 +1495,7 @@ if (isset($pdo)) {
                 <div class="contact-card-container active-content" id="kirim-pesan">
                     <div class="contact-card-left">
                         <h3><i class="fas fa-comment-dots"></i> Kirim Pesan</h3>
-                        <p>Kirim pesan langsung via form di bawah. Kami akan balas secepat mungkin.</p>
+                        <p>Kirim pesan langsung melalui formulir di bawah ini. Kami akan merespons pesan Anda sesegera mungkin.</p>
                         <div class="contact-quick-info">
                             <div>
                                 <i class="fas fa-envelope"></i>
@@ -1472,7 +1511,7 @@ if (isset($pdo)) {
                         <form action="#" method="POST">
                             <div class="form-group">
                                 <label for="nama_lengkap">Nama Lengkap<span style="color: red;">*</span></label>
-                                <input type="text" id="nama_lengkap" name="nama_lengkap" placeholder="Masukkan nama lo" required>
+                                <input type="text" id="nama_lengkap" name="nama_lengkap" placeholder="Masukkan nama lengkap Anda" required>
                             </div>
                             <div class="form-group">
                                 <label for="email_kontak">Email<span style="color: red;">*</span></label>
@@ -1484,7 +1523,7 @@ if (isset($pdo)) {
                             </div>
                             <div class="form-group">
                                 <label for="pesan">Pesan<span style="color: red;">*</span></label>
-                                <textarea id="pesan" name="pesan" placeholder="Tulis apa aja di sini..." required></textarea>
+                                <textarea id="pesan" name="pesan" placeholder="Tuliskan pesan Anda di sini..." required></textarea>
                             </div>
                             <button type="submit" class="btn-submit"><i class="fas fa-paper-plane"></i> Kirim Pesan</button>
                         </form>
