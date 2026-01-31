@@ -1388,13 +1388,13 @@ unset($pdo); // Tutup koneksi database SETELAH semua data dipakai
                             <span class="card-value">Rp <?php echo number_format($total_revenue, 0, ',', '.'); ?></span>
                         </div>
                     </div>
-                    <div class="dashboard-card pending-orders">
+                    <!-- <div class="dashboard-card pending-orders">
                         <div class="card-icon"><i class="fas fa-hourglass-half"></i></div>
                         <div class="card-content">
                             <span class="card-label">Pesanan Tertunda</span>
                             <span class="card-value"><?php echo number_format($total_pending_orders, 0, ',', '.'); ?></span>
                         </div>
-                    </div>
+                    </div> -->
                 </div>
 
                 <div class="section-header" style="margin-top: 40px;">

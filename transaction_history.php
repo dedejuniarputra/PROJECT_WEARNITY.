@@ -12,6 +12,31 @@ $transactions_history = [];
 $message = '';
 $message_type = '';
 
+// ===============================================
+// LOGIKA UNTUK CEK KELENGKAPAN PROFIL PENGGUNA
+// ===============================================
+$profile_incomplete = false;
+$user_profile = [];
+
+try {
+    if (isset($pdo)) {
+        $sql_user_profile = "SELECT full_name, email, phone_number, address FROM users WHERE id = :id";
+        $stmt_user_profile = $pdo->prepare($sql_user_profile);
+        $stmt_user_profile->bindParam(':id', $user_id, PDO::PARAM_INT);
+        $stmt_user_profile->execute();
+        $user_profile = $stmt_user_profile->fetch(PDO::FETCH_ASSOC);
+
+        if (empty($user_profile['full_name']) || empty($user_profile['email']) || empty($user_profile['phone_number']) || empty($user_profile['address'])) {
+            $profile_incomplete = true;
+        }
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching user profile data: " . $e->getMessage());
+}
+// ===============================================
+// END LOGIKA CEK KELENGKAPAN PROFIL PENGGUNA
+// ===============================================
+
 // Ambil pesan sukses/error dari session jika ada
 // Setelah konfirmasi pesanan (dari order_details.php) atau konfirmasi pembayaran (dari payment_confirmation.php)
 if (isset($_SESSION['order_success_message'])) {
@@ -90,189 +115,247 @@ unset($pdo); // Tutup koneksi database
 ?>
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Lihat riwayat transaksi Anda di WEARNITY. Lacak status pesanan Anda.">
     <title>Riwayat Transaksi | WEARNITY</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
     <style>
-        /* General Styles & Resets */
-        body {
-            font-family: 'Montserrat', sans-serif;
+        :root {
+            --primary-color: #0f172a;
+            --secondary-color: #6366f1;
+            --accent-color: #f59e0b;
+            --background-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f0f2f5;
-            color: #333;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--background-color);
+            color: var(--text-primary);
             line-height: 1.6;
-            overflow-x: hidden;
-            padding-top: 70px; /* Add padding-top to body equal to header height */
+            padding-top: 120px;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        main {
+            flex: 1;
+        }
+
+        h1, h2, h3, .logo-text, .logo strong {
+            font-family: var(--font-display);
         }
 
         a {
             text-decoration: none;
             color: inherit;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Header / Navigation Bar */
+        /* Header */
         header {
-            background-color: #ffffff;
-            padding: 15px 50px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 1400px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            z-index: 100;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            box-sizing: border-box;
+            padding: 0 30px;
+            z-index: 1000;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: var(--shadow-lg);
         }
 
         .logo strong {
-            font-size: 28px;
-            color: #2c3e50;
-            letter-spacing: 1px;
-            font-weight: 700;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: var(--primary-color);
+            text-transform: uppercase;
         }
 
         .nav-links {
+            display: flex;
+            gap: 20px;
             list-style: none;
             margin: 0;
             padding: 0;
-            display: flex;
-            gap: 40px;
         }
 
-        .nav-links li a {
-            font-size: 16px;
-            color: #555;
-            transition: all 0.3s ease;
+        .nav-links a {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 13.5px;
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 5px 0;
+            padding: 10px 20px;
+            border-radius: 100px;
         }
 
-        .nav-links li a i {
-            font-size: 14px;
-            color: #888;
-            transition: color 0.3s ease;
-        }
-
-        .nav-links li a:hover,
-        .nav-links li a.active {
-            color: #007bff;
-        }
-
-        .nav-links li a:hover i,
-        .nav-links li a.active i {
-            color: #007bff;
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--secondary-color);
+            background: rgba(99, 102, 241, 0.08);
         }
 
         .nav-icons {
             display: flex;
-            gap: 25px;
-            position: relative;
+            gap: 12px;
+            align-items: center;
         }
 
         .nav-icons .icon-btn {
-            font-size: 22px;
-            color: #777;
-            cursor: pointer;
-            transition: color 0.3s ease;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: var(--background-color);
+            font-size: 16px;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            position: relative;
         }
 
         .nav-icons .icon-btn:hover {
-            color: #007bff;
+            background: var(--primary-color);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .notification-badge-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .dropdown-warning {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            margin: 4px 8px 8px;
+            background: #fff7ed;
+            color: #c2410c;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 8px;
+            border: 1px solid #ffedd5;
         }
 
         /* Profile Dropdown */
+        .profile-icon-container {
+            position: relative;
+        }
+
         .profile-dropdown {
             position: absolute;
-            top: 45px;
+            top: 50px;
             right: 0;
-            background-color: #fff;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
+            width: 220px;
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--border-color);
             display: none;
-            width: 180px;
+            animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             overflow: hidden;
-            animation: fadeIn 0.2s ease-out forwards;
+            padding: 8px;
         }
 
         .profile-dropdown.show {
             display: block;
         }
 
-        .profile-dropdown ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
         .profile-dropdown ul li a {
+            padding: 10px 14px;
+            color: var(--text-primary);
             display: flex;
+            gap: 12px;
             align-items: center;
-            gap: 10px;
-            padding: 12px 15px;
-            color: #444;
-            transition: background-color 0.3s ease, color 0.3s ease;
-            font-size: 15px;
-        }
-
-        .profile-dropdown ul li a i {
-            color: #777;
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: var(--radius-md);
         }
 
         .profile-dropdown ul li a:hover {
-            background-color: #f5f5f5;
-            color: #007bff;
+            background: var(--background-color);
+            color: var(--secondary-color);
         }
 
-        .profile-dropdown ul li a:hover i {
-            color: #007bff;
+        .profile-icon-container:hover .profile-dropdown {
+            display: block;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Ensuring there's no gap for hover to stay active */
+        .profile-icon-container {
+            padding-bottom: 10px;
+            margin-bottom: -10px;
         }
 
-        /* Shopping Cart Sidebar Styles */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Shopping Cart Sidebar */
         .cart-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1001;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            z-index: 3000;
             display: none;
         }
 
         .cart-sidebar {
             position: fixed;
-            top: 0;
-            right: -400px;
-            width: 380px;
-            height: 100%;
-            background-color: #fff;
-            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
-            z-index: 1002;
-            transition: right 0.3s ease-in-out;
+            top: 0; right: -450px; width: 450px; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: -15px 0 50px rgba(0, 0, 0, 0.15);
+            z-index: 3001;
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
             flex-direction: column;
         }
@@ -282,660 +365,420 @@ unset($pdo); // Tutup koneksi database
         }
 
         .cart-header {
-            padding: 20px;
-            border-bottom: 1px solid #eee;
+            padding: 35px 30px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: #f8f8f8;
         }
 
-        .cart-header h3 {
-            margin: 0;
-            font-size: 24px;
-            color: #333;
+        .cart-header h3 { 
+            font-size: 1.8rem; 
+            font-weight: 800; 
+            color: var(--primary-color);
+            letter-spacing: -1px;
         }
 
         .close-cart-btn {
-            background: none;
+            background: #f1f5f9;
             border: none;
-            font-size: 30px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
             cursor: pointer;
-            color: #777;
-            padding: 0;
-            line-height: 1;
+            color: #64748b;
+            transition: all 0.3s;
         }
 
+        .close-cart-btn:hover { background: #fee2e2; color: #ef4444; }
+
         .cart-items-list {
-            flex-grow: 1;
+            flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 20px 30px;
         }
 
         .cart-item {
             display: flex;
+            gap: 20px;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             align-items: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            background-color: #fff;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
         }
 
         .cart-item img {
-            width: 80px;
+            width: 70px;
             height: 80px;
             object-fit: cover;
-            border-radius: 5px;
-            margin-right: 15px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
         }
 
-        .cart-item .item-details {
-            flex-grow: 1;
+        .item-details {
+            flex: 1;
             display: flex;
             flex-direction: column;
+            gap: 4px;
         }
 
-        .cart-item .item-name {
-            font-weight: bold;
-            font-size: 1.1em;
-            margin-bottom: 5px;
+        .item-name {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--primary-color);
         }
 
-        .cart-item .quantity-controls {
+        .item-price {
+            font-weight: 700;
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+        }
+
+        .quantity-controls {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 1.1em;
+            gap: 12px;
+            background: #f8fafc;
+            padding: 4px 10px;
+            border-radius: 100px;
+            width: fit-content;
         }
 
-        .cart-item .qty-btn {
-            background: none;
-            border: 1px solid #ccc;
+        .qty-btn {
+            background: white;
+            border: 1px solid var(--border-color);
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            width: 28px;
-            height: 28px;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
+            font-size: 10px;
             cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease;
+            color: var(--text-primary);
         }
 
-        .cart-item .qty-btn:hover {
-            background-color: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-
-        .cart-item .qty-btn i {
-            font-size: 0.8em;
-        }
-
-        .cart-item .item-actions {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 10px;
-            margin-left: 15px;
-        }
-
-        .cart-item .item-price {
-            font-weight: bold;
-            color: #007bff;
-            font-size: 1.1em;
-        }
-
-        .cart-item .remove-item-btn {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            font-size: 1.2em;
-            transition: color 0.2s ease;
-        }
-
-        .cart-item .remove-item-btn:hover {
-            color: #c82333;
-        }
+        .item-quantity { font-weight: 700; font-size: 0.85rem; }
 
         .cart-summary {
-            border-top: 1px solid #eee;
-            padding: 20px;
-            background-color: #f8f8f8;
+            padding: 30px;
+            background: white;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .total-price {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 20px;
         }
 
-        .cart-summary .total-price {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #333;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .cart-summary .total-price span:last-child {
-            color: #007bff;
+        .total-price span:last-child { 
+            color: var(--primary-color); 
+            font-weight: 800; 
+            font-size: 1.4rem;
         }
 
         .checkout-btn {
-            background-color: #007bff;
+            width: 100%;
+            background: var(--primary-color);
             color: white;
-            padding: 15px 25px;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.5em;
+            padding: 16px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 60px;
-            height: 60px;
-            transition: background-color 0.3s ease;
+            font-weight: 700;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
         }
 
-        .checkout-btn:hover {
-            background-color: #0056b3;
-        }
-
-        .empty-cart-message {
-            text-align: center;
-            color: #777;
-            margin-top: 50px;
-            font-size: 1.1em;
-        }
         /* End of Navbar/Cart CSS */
 
         /* Main content for history */
         .history-container {
-            max-width: 900px;
-            margin: 60px auto 40px auto; /* Increased top margin for consistency */
-            background-color: #fff;
-            padding: 40px; /* Increased padding */
-            border-radius: 12px; /* Smoother corners */
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); /* Deeper shadow */
-            border: 1px solid #e0e0e0; /* Subtle border */
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
         }
 
         .history-container h2 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 40px;
+            letter-spacing: -1.5px;
             text-align: center;
-            margin-bottom: 35px; /* Increased margin bottom */
-            color: #2c3e50; /* Darker title color */
-            font-size: 28px; /* Larger font size */
-            font-weight: 600; /* Bolder font */
         }
 
-        /* Alert styling for success/danger/info messages */
+        /* Alert styling */
         .alert {
-            padding: 18px 25px; /* Larger padding */
-            border-radius: 8px; /* Smoother corners */
-            margin-bottom: 25px; /* More space below */
-            font-size: 1.05em; /* Slightly larger font */
+            padding: 20px 25px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 30px;
             display: flex;
             align-items: center;
-            gap: 12px; /* Gap between icon and text */
-            font-weight: 500;
+            gap: 15px;
+            font-weight: 600;
+            border: 1px solid transparent;
         }
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .alert-info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        .alert i {
-            font-size: 1.2em; /* Icon size */
-        }
+
+        .alert-success { background: #f0fdf4; color: #166534; border-color: #dcfce7; }
+        .alert-danger { background: #fef2f2; color: #991b1b; border-color: #fee2e2; }
+        .alert-info { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
 
         /* Transaction List Styles */
         .transaction-card {
-            background-color: #fdfdfd;
-            border: 1px solid #e5e5e5; /* Lighter border */
-            border-radius: 10px; /* Consistent border radius */
-            margin-bottom: 30px; /* More space between cards */
-            padding: 25px; /* More padding inside card */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* Better shadow */
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            margin-bottom: 30px;
+            padding: 30px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .transaction-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-xl);
+            border-color: var(--secondary-color);
         }
 
         .transaction-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px; /* More space below header */
-            padding-bottom: 15px;
-            border-bottom: 1px dashed #e0e0e0; /* Lighter dash border */
-            flex-wrap: wrap; /* Allow wrapping on small screens */
-            gap: 10px; /* Gap for wrapped items */
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .transaction-header .code {
-            font-weight: 700; /* Bolder */
-            font-size: 1.3em; /* Larger font */
-            color: #007bff;
-            flex-grow: 1; /* Allow code to take space */
+            font-weight: 800;
+            font-size: 1.2rem;
+            color: var(--primary-color);
         }
 
         .transaction-header .date {
-            font-size: 0.95em; /* Slightly larger font */
-            color: #666;
-            text-align: right;
-            white-space: nowrap; /* Prevent wrapping for date */
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
-        .transaction-header .status {
-            font-weight: 600; /* Bolder */
-            padding: 6px 12px; /* More padding */
-            border-radius: 20px; /* Pill-shaped */
-            font-size: 0.9em;
-            text-align: center;
-            min-width: 120px; /* Adjust minimum width for consistency */
-            box-sizing: border-box;
-            line-height: 1.2; /* Ensure vertical alignment */
+        .status {
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Status colors */
-        .transaction-header .status.waiting-payment {
-            background-color: #ffc107;
-            color: #856404;
-        }
-        .transaction-header .status.payment-confirmed {
-            background-color: #007bff;
-            color: white;
-        }
-        .transaction-header .status.processing {
-            background-color: #6f42c1;
-            color: white;
-        }
-        .transaction-header .status.shipped {
-            background-color: #17a2b8;
-            color: white;
-        }
-        .transaction-header .status.completed {
-            background-color: #28a745;
-            color: white;
-        }
-        .transaction-header .status.cancelled {
-            background-color: #dc3545;
-            color: white;
-        }
-        .transaction-header .status.pending { /* Fallback for generic Pending */
-            background-color: #d6d8d9;
-            color: #383d41;
-        }
+        .status.waiting-payment { background: #fffbeb; color: #92400e; }
+        .status.payment-confirmed { background: #eff6ff; color: #1e40af; }
+        .status.processing { background: #f5f3ff; color: #5b21b6; }
+        .status.shipped { background: #ecfeff; color: #155e75; }
+        .status.completed { background: #f0fdf4; color: #166534; }
+        .status.cancelled { background: #fef2f2; color: #991b1b; }
 
         .transaction-items-table {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px; /* More space above table */
-        }
-
-        .transaction-items-table th,
-        .transaction-items-table td {
-            border: 1px solid #eee;
-            padding: 12px 15px; /* More padding */
-            text-align: left;
-            vertical-align: middle; /* Align content vertically */
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 25px;
         }
 
         .transaction-items-table th {
-            background-color: #f8f8f8;
-            color: #555;
-            font-weight: 600; /* Bolder header text */
-            font-size: 0.95em;
+            text-align: left;
+            padding: 12px 15px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .transaction-items-table .item-product-details {
+        .transaction-items-table td {
+            padding: 15px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f8fafc;
+        }
+
+        .item-product-details {
             display: flex;
             align-items: center;
-            gap: 15px; /* More gap */
+            gap: 15px;
         }
 
-        .transaction-items-table .item-product-details img {
-            width: 60px; /* Larger image */
-            height: 60px; /* Larger image */
+        .item-product-details img {
+            width: 50px;
+            height: 60px;
             object-fit: cover;
-            border-radius: 6px; /* Slightly smoother border */
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-        }
-        .transaction-items-table td {
-            font-size: 0.9em; /* Consistent font size for table data */
-            color: #444;
-        }
-        .transaction-items-table td:nth-child(2), /* Kuantitas */
-        .transaction-items-table td:nth-child(3), /* Harga Satuan */
-        .transaction-items-table td:nth-child(4) /* Subtotal */ {
-            white-space: nowrap; /* Prevent wrapping for numbers */
+            border-radius: 8px;
         }
 
-
-        /* New styling for "Konfirmasi Pembayaran" button */
-        .transaction-actions {
-            text-align: right;
-            margin-top: 20px; /* More space above actions */
-        }
-        .btn-pay-now {
-            background-color: #28a745; /* Green */
-            color: white;
-            padding: 10px 20px; /* More padding */
-            border: none;
-            border-radius: 8px; /* Smoother corners */
-            cursor: pointer;
-            font-size: 1em; /* Standard font size */
-            font-weight: 600; /* Bolder text */
-            transition: background-color 0.3s ease, transform 0.2s ease;
-            display: inline-flex; /* For icon alignment */
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-pay-now:hover {
-            background-color: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        .payment-proof-link {
-            display: inline-block; /* Changed to inline-block for better spacing with button */
-            margin-top: 10px;
-            font-size: 0.95em; /* Slightly larger */
-            color: #007bff;
-            text-decoration: none; /* Remove underline by default */
-            font-weight: 500;
-        }
-        .payment-proof-link:hover {
-            color: #0056b3;
-            text-decoration: underline; /* Add underline on hover */
+        .item-product-details span {
+            font-weight: 700;
+            color: var(--primary-color);
         }
 
         .transaction-footer {
             display: flex;
-            justify-content: flex-end;
-            margin-top: 20px; /* More space above footer */
+            justify-content: space-between;
             align-items: center;
-            gap: 20px; /* Increased gap */
-            padding-top: 15px;
-            border-top: 1px dashed #e0e0e0;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
         }
+
         .shipping-courier-info {
-            font-size: 0.95em; /* Slightly larger */
-            color: #777;
-            text-align: left;
-            flex-grow: 1;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
         .transaction-total {
-            font-size: 1.4em; /* Larger font */
-            font-weight: 700; /* Bolder */
-            color: #007bff;
-            background-color: #e6f7ff;
-            padding: 12px 20px; /* More padding */
-            border-radius: 8px; /* Smoother corners */
-            text-align: right;
-            min-width: 200px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
         }
 
-        /* UPDATED FOOTER STYLES (Copied from dashboard) */
-        footer {
-            background-color: #2c3e50; /* Dark color consistent with your design */
-            color: #ecf0f1; /* Light text for contrast */
-            padding: 20px 20px; /* Reduced padding for a smaller look */
-            text-align: center;
-            font-size: 0.9em; /* Slightly smaller font size for copyright */
-            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1); /* Subtle top shadow */
+        .transaction-actions {
+            margin-top: 25px;
             display: flex;
-            flex-direction: column;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        .btn-pay-now {
+            background: var(--primary-color);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: flex;
             align-items: center;
-            justify-content: center;
-            min-height: 80px; /* Reduced minimum height */
-            margin-top: 50px; /* Keep margin from main content */
+            gap: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-pay-now:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .payment-proof-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            color: var(--secondary-color);
+            font-weight: 700;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .payment-proof-link:hover {
+            opacity: 0.8;
+            transform: translateX(3px);
+        }
+
+        /* Footer */
+        footer {
+            background: #111111;
+            color: #6b7280;
+            padding: 30px 20px;
+            text-align: center;
+            margin-top: 80px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         footer p {
+            font-size: 0.85rem;
             margin: 0;
-            font-weight: 500;
             letter-spacing: 0.5px;
         }
 
-        .footer-social {
-            margin-top: 15px; /* Reduced margin top for social icons */
+
+        /* Notifications & Popups */
+        .profile-popup {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 18px 35px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            border-radius: 40px;
+            z-index: 2100;
+            display: none;
+            align-items: center;
+            gap: 20px;
+            animation: slideUpPopup 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-left: 8px solid #f59e0b;
+            min-width: 450px;
+            max-width: 90vw;
+        }
+
+        @keyframes slideUpPopup {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .popup-icon { font-size: 24px; color: #f59e0b; }
+        .profile-popup p { font-size: 14px; font-weight: 600; color: #1e293b; }
+        .profile-popup a { color: #6366f1; text-decoration: underline; }
+        .close-popup-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #94a3b8; }
+
+        #toast-container {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            z-index: 9999;
             display: flex;
-            gap: 15px; /* Reduced gap between icons */
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .footer-social a {
-            color: #ecf0f1;
-            font-size: 20px; /* Slightly smaller social icons */
-            transition: color 0.3s ease, transform 0.2s ease;
+        .toast {
+            background: white;
+            padding: 16px 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            animation: toastSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 5px solid #10b981;
         }
 
-        .footer-social a:hover {
-            color: #007bff;
-            transform: translateY(-2px); /* Subtle hover effect */
+        .toast.error { border-left-color: #ef4444; }
+
+        @keyframes toastSlide {
+            from { transform: translateX(50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 992px) {
-            header {
-                padding: 15px 30px;
-            }
-            .nav-links {
-                gap: 25px;
-            }
-            .history-container {
-                margin: 40px auto 30px auto;
-                padding: 30px;
-                max-width: 90%;
-            }
-            footer {
-                padding: 15px 15px; /* Further reduce padding on medium screens */
-            }
-            .footer-social {
-                margin-top: 10px;
-                gap: 10px;
-            }
-            .footer-social a {
-                font-size: 18px;
-            }
-        }
-
+        /* Responsive */
         @media (max-width: 768px) {
-            body {
-                padding-top: 130px;
-            }
-            header {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 15px 20px;
-            }
-            .logo {
-                margin-bottom: 15px;
-            }
-            .nav-links {
-                margin-top: 0;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 15px;
-            }
-            .nav-links li {
-                width: 100%;
-                text-align: center;
-            }
-            .nav-links li a {
-                justify-content: center;
-            }
-            .nav-icons {
-                margin-top: 15px;
-                width: 100%;
-                justify-content: center;
-            }
-            .profile-dropdown {
-                top: auto;
-                bottom: -5px;
-                left: 50%;
-                transform: translateX(-50%) translateY(-100%);
-            }
-
-            .history-container {
-                margin: 20px;
-                padding: 20px;
-            }
-            .history-container h2 {
-                font-size: 24px;
-                margin-bottom: 25px;
-            }
-            .alert {
-                padding: 15px 20px;
-                font-size: 0.95em;
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-            .alert p {
-                text-align: left;
-            }
-            .alert i {
-                align-self: flex-start;
-            }
-
-            .transaction-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 5px;
-                margin-bottom: 15px;
-            }
-            .transaction-header .code,
-            .transaction-header .date,
-            .transaction-header .status {
-                width: auto;
-                text-align: left;
-            }
-            .transaction-header .status {
-                min-width: 100px;
-            }
-
-            .transaction-items-table thead {
-                display: none;
-            }
-            .transaction-items-table tr {
-                display: block;
-                margin-bottom: 15px;
-                border: 1px solid #eee;
-                border-radius: 8px;
-                overflow: hidden;
-            }
-            .transaction-items-table td {
-                display: block;
-                width: 100%;
-                box-sizing: border-box;
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-                border-bottom: none;
-            }
-            .transaction-items-table td:last-child {
-                border-bottom: 1px solid #eee;
-            }
-            .transaction-items-table td::before {
-                content: attr(data-label);
-                position: absolute;
-                left: 15px;
-                width: 45%;
-                white-space: nowrap;
-                text-align: left;
-                font-weight: 600;
-                color: #555;
-            }
-            .transaction-items-table .item-product-details {
-                justify-content: flex-end;
-                text-align: right;
-            }
-            .transaction-items-table .item-product-details img {
-                order: 2;
-                margin-right: 0;
-                margin-left: 10px;
-            }
-            .transaction-items-table .item-product-details span {
-                order: 1;
-            }
-
-            .transaction-footer {
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 15px;
-            }
-            .shipping-courier-info {
-                text-align: right;
-                width: 100%;
-            }
-            .transaction-total {
-                width: 100%;
-                text-align: right;
-            }
-            .transaction-actions {
-                width: 100%;
-                text-align: right;
-            }
-            .btn-pay-now {
-                width: 100%;
-                max-width: 250px;
-            }
-            footer {
-                padding: 15px 15px;
-                min-height: 70px; /* Even smaller min-height on mobile */
-            }
-            footer p {
-                font-size: 0.8em; /* Even smaller font on mobile */
-            }
-            .footer-social {
-                margin-top: 10px;
-                gap: 10px;
-            }
-            .footer-social a {
-                font-size: 16px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .logo strong {
-                font-size: 24px;
-            }
-            .nav-links li a {
-                font-size: 15px;
-                gap: 5px;
-            }
-            .nav-icons .icon-btn {
-                font-size: 20px;
-            }
-            .history-container {
-                padding: 15px;
-                margin: 20px auto;
-            }
-            .transaction-total {
-                font-size: 1.2em;
-                padding: 10px 15px;
-            }
-            .btn-pay-now {
-                padding: 10px 15px;
-                font-size: 0.9em;
-            }
-            .payment-proof-link {
-                font-size: 0.85em;
-            }
+            header { padding: 0 20px; width: 95%; top: 10px; }
+            .nav-links { display: none; }
+            body { padding-top: 100px; }
+            .history-container h2 { font-size: 2rem; }
+            .transaction-card { padding: 20px; }
+            .transaction-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .transaction-footer { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .transaction-items-table { display: block; overflow-x: auto; }
+            .transaction-total { width: 100%; text-align: right; }
+            .profile-popup { right: 20px; bottom: 20px; min-width: unset; width: calc(100% - 40px); }
         }
     </style>
 </head>
@@ -946,7 +789,7 @@ unset($pdo); // Tutup koneksi database
         </div>
         <nav>
             <ul class="nav-links">
-                <li><a href="dashboard.php"><i class="fas fa-home"></i> Beranda</a></li>
+                <li><a href="dashboard.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>"><i class="fas fa-home"></i> Beranda</a></li>
                 <li><a href="dashboard.php#katalog"><i class="fas fa-shirt"></i> Katalog</a></li>
                 <li><a href="dashboard.php#cerita-kami"><i class="fas fa-info-circle"></i> Cerita Kami</a></li>
                 <li><a href="dashboard.php#hubungi-kami"><i class="fas fa-phone"></i> Hubungi Kami</a></li>
@@ -954,10 +797,23 @@ unset($pdo); // Tutup koneksi database
             </ul>
         </nav>
         <div class="nav-icons">
-            <a href="#" class="icon-btn" id="cartIcon"><i class="fas fa-shopping-cart"></i></a>
+            <a href="#" class="icon-btn" id="cartIcon">
+                <i class="fas fa-shopping-cart"></i>
+                <span class="notification-badge-dot"></span>
+            </a>
             <div class="profile-icon-container">
-                <a href="#" class="icon-btn" id="profileIcon"><i class="fas fa-user"></i></a>
+                <a href="profile.php" class="icon-btn" id="profileIcon">
+                    <i class="fas fa-user"></i>
+                    <?php if ($profile_incomplete): ?>
+                        <span class="notification-badge-dot"></span>
+                    <?php endif; ?>
+                </a>
                 <div class="profile-dropdown" id="profileDropdown">
+                    <?php if ($profile_incomplete): ?>
+                        <div class="dropdown-warning">
+                            <i class="fas fa-exclamation-triangle"></i> Profil Belum Lengkap
+                        </div>
+                    <?php endif; ?>
                     <ul>
                         <li><a href="profile.php"><i class="fas fa-user-circle"></i> Profil Saya</a></li>
                         <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
@@ -968,6 +824,14 @@ unset($pdo); // Tutup koneksi database
     </header>
 
     <main>
+        <?php if ($profile_incomplete): ?>
+            <div id="profileCompletionPopup" class="profile-popup">
+                <i class="fas fa-exclamation-circle popup-icon"></i>
+                <p>Profil lo belum lengkap nih! <a href="profile.php">Lengkapi sekarang</a> biar belanja makin asik.</p>
+                <button class="close-popup-btn">&times;</button>
+            </div>
+        <?php endif; ?>
+
         <div class="history-container">
             <h2>Riwayat Transaksi Anda</h2>
             <?php if (!empty($message)): ?>
@@ -1047,65 +911,42 @@ unset($pdo); // Tutup koneksi database
     </main>
 
     <footer>
-        <p>Copyright © 2025 - Wearnity by THANKSINSOMNIA</p>
-        <div class="footer-social">
-            <a href="#" target="_blank" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
-            <a href="#" target="_blank" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
-            <a href="#" target="_blank" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
-            <a href="#" target="_blank" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-        </div>
+        <p>&copy; 2025 Wearnity by THANKSINSOMNIA. All Rights Reserved.</p>
     </footer>
 
     <div class="cart-overlay" id="cartOverlay"></div>
-    <div class="cart-sidebar" id="cartSidebar">
-        </div>
+    <div class="cart-sidebar" id="cartSidebar"></div>
+    <div id="toast-container"></div>
 
     <script>
         // Profile Dropdown
         const profileIcon = document.getElementById('profileIcon');
         const profileDropdown = document.getElementById('profileDropdown');
 
-        profileIcon.addEventListener('click', function(event) {
-            event.preventDefault();
-            profileDropdown.classList.toggle('show');
-        });
+        if (profileIcon && profileDropdown) {
+             // Dropdown is handled by CSS hover on desktop, 
+             // but we keep the element for consistency
+        }
 
-        document.addEventListener('click', function(event) {
-            if (!profileIcon.contains(event.target) && !profileDropdown.contains(event.target)) {
-                profileDropdown.classList.remove('show');
-            }
-        });
-
-        // Script untuk menambahkan kelas 'active' pada link navigasi yang sedang aktif
         document.addEventListener('DOMContentLoaded', function() {
-            const currentPath = window.location.pathname.split('/').pop();
-            const navLinks = document.querySelectorAll('.nav-links li a');
-
-            navLinks.forEach(link => {
-                const linkPath = link.getAttribute('href').split('/').pop();
-                // Handle dashboard.php as default empty path if user accesses domain root
-                if (linkPath === currentPath || (currentPath === 'dashboard.php' && linkPath === '')) {
-                    link.classList.add('active');
-                }
-            });
+            // --- Toast Logic ---
+            function showToast(message, type = 'success') {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i><span>${message}</span>`;
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.add('fade-out');
+                    setTimeout(() => toast.remove(), 500);
+                }, 3000);
+            }
 
             // --- Shopping Cart Logic ---
             const cartSidebar = document.getElementById('cartSidebar');
             const cartOverlay = document.getElementById('cartOverlay');
             const cartIcon = document.getElementById('cartIcon');
-            const cartContentContainer = document.getElementById('cartSidebar'); // Same element
-
-            if (cartIcon && cartSidebar && cartOverlay) {
-                cartIcon.addEventListener('click', function(event) {
-                    event.preventDefault();
-                    toggleCartSidebar();
-                });
-
-                // Close cart sidebar when overlay is clicked
-                cartOverlay.addEventListener('click', function() {
-                    toggleCartSidebar();
-                });
-            }
 
             function toggleCartSidebar() {
                 if (cartSidebar && cartOverlay) {
@@ -1115,167 +956,86 @@ unset($pdo); // Tutup koneksi database
                     if (cartSidebar.classList.contains('open')) {
                         loadCartContent();
                     }
-                } else {
-                    console.warn("Elemen keranjang (cartSidebar/cartOverlay) tidak ditemukan. Redirect ke halaman keranjang.");
-                    window.location.href = 'cart.php'; // Fallback if elements not found
                 }
             }
+
+            if (cartIcon) cartIcon.onclick = (e) => { e.preventDefault(); toggleCartSidebar(); };
+            if (cartOverlay) cartOverlay.onclick = toggleCartSidebar;
 
             function loadCartContent() {
-                if (!cartContentContainer) return;
-                fetch('_cart_content.php')
-                    .then(response => {
-                        if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
-                        return response.text();
-                    })
-                    .then(html => {
-                        cartContentContainer.innerHTML = html;
-                        attachCartItemListeners(); // Re-attach listeners after content is loaded
-                    })
-                    .catch(error => {
-                        console.error('Error loading cart content:', error);
-                        cartContentContainer.innerHTML = '<p class="empty-cart-message" style="color: red;">Gagal memuat keranjang. Silakan coba lagi.</p>';
-                    });
+                fetch('_cart_content.php').then(r => r.text()).then(html => {
+                    cartSidebar.innerHTML = html;
+                    attachCartItemListeners();
+                }).catch(err => console.error('Error loading cart:', err));
             }
 
-            // These functions are generally for adding/updating/removing from cart,
-            // which usually happens on product pages, not directly on transaction_history.
-            // But they are here if needed by attachedCartItemListeners() when cart is open.
-            function updateCartItemQuantity(productId, newQuantity) {
-                fetch('cart_actions.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        },
-                        body: `action=update_quantity&product_id=${productId}&quantity=${newQuantity}`
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            loadCartContent(); // Reload cart content to reflect changes
-                        } else {
-                            alert('Gagal memperbarui kuantitas: ' + data.message);
-                        }
-                    })
-                    .catch(error => console.error('Error updating quantity:', error));
-            }
-
-            function removeFromCart(productId) {
-                fetch('cart_actions.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        },
-                        body: `action=remove&product_id=${productId}`
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            loadCartContent(); // Reload cart content to reflect changes
-                        } else {
-                            alert('Gagal menghapus produk: ' + data.message);
-                        }
-                    })
-                    .catch(error => console.error('Error removing from cart:', error));
-            }
-
-            // This function will be called after cart content is reloaded via AJAX
             function attachCartItemListeners() {
-                // Event listener for close button in cart sidebar
-                const closeCartBtn = document.querySelector('#cartSidebar .close-cart-btn');
-                if (closeCartBtn) {
-                    closeCartBtn.addEventListener('click', function() {
-                        toggleCartSidebar();
-                    });
-                }
+                const closeBtn = document.getElementById('closeCartBtn');
+                if (closeBtn) closeBtn.onclick = toggleCartSidebar;
 
-                // Attach listeners for quantity buttons
-                document.querySelectorAll('#cartSidebar .qty-btn').forEach(button => {
-                    button.onclick = function() {
-                        const productId = this.closest('.cart-item').dataset.productId;
-                        let currentQty = parseInt(this.closest('.quantity-controls').querySelector('.item-quantity').textContent);
-                        let newQty;
-                        if (this.dataset.action === 'plus') {
-                            newQty = currentQty + 1;
-                        } else { // minus
-                            newQty = currentQty - 1;
-                        }
-                        if (newQty <= 0) {
-                            if (confirm('Apakah Anda yakin ingin menghapus produk ini dari keranjang?')) {
-                                removeFromCart(productId);
-                            }
-                        } else {
-                            updateCartItemQuantity(productId, newQty);
-                        }
+                document.querySelectorAll('.qty-btn').forEach(btn => {
+                    btn.onclick = function() {
+                        const pid = this.closest('.cart-item').dataset.productId;
+                        const action = this.dataset.action;
+                        const qtyEl = this.parentNode.querySelector('.item-quantity');
+                        const currentQty = parseInt(qtyEl.textContent);
+                        const newQty = action === 'plus' ? currentQty + 1 : currentQty - 1;
+                        if (newQty > 0) updateCartItemQuantity(pid, newQty);
+                        else if (confirm('Hapus item dari keranjang?')) updateCartItemQuantity(pid, 0);
                     };
                 });
 
-                // Attach listeners for remove buttons
-                document.querySelectorAll('#cartSidebar .remove-item-btn').forEach(button => {
-                    button.onclick = function() {
-                        if (confirm('Apakah Anda yakin ingin menghapus produk ini dari keranjang?')) {
-                            const productId = this.closest('.cart-item').dataset.productId;
-                            removeFromCart(productId);
+                document.querySelectorAll('.remove-item-btn').forEach(btn => {
+                    btn.onclick = function() {
+                        if (confirm('Hapus item dari keranjang?')) {
+                            const pid = this.closest('.cart-item').dataset.productId;
+                            updateCartItemQuantity(pid, 0);
                         }
                     };
                 });
-
-                // Attach listener for checkout button
-                const checkoutBtn = document.getElementById('checkoutBtn');
-                if (checkoutBtn) {
-                    checkoutBtn.addEventListener('click', function(event) {
-                        event.preventDefault();
-                        window.location.href = 'order_details.php';
-                    });
-                }
             }
-            
-            // JavaScript for handling the "Konfirmasi Pembayaran Sekarang" button
-            document.querySelectorAll('.btn-pay-now').forEach(button => {
-                // Prevent attaching multiple listeners if the script runs multiple times
-                if (!button.dataset.listenerAttached) {
-                    button.addEventListener('click', function(event) {
-                        event.preventDefault(); // Prevent immediate navigation
 
-                        // Get the transaction_id from the data attribute
-                        const transactionId = this.dataset.transactionId;
+            function updateCartItemQuantity(pid, qty) {
+                fetch('cart_actions.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=update_quantity&product_id=${pid}&quantity=${qty}`
+                }).then(r => r.json()).then(data => {
+                    if (data.success) loadCartContent();
+                    else showToast(data.message, 'error');
+                }).catch(err => console.error('Error updating qty:', err));
+            }
 
-                        if (transactionId) {
-                            // Make an AJAX call to set the transaction ID in session
-                            fetch('set_transaction_session.php', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                },
-                                body: 'transaction_id=' + transactionId
-                            })
-                            .then(response => {
-                                if (!response.ok) {
-                                    // Handle HTTP errors
-                                    throw new Error('Network response was not ok ' + response.statusText);
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                if (data.success) {
-                                    // If session is set successfully, then navigate to payment_confirmation.php
-                                    window.location.href = 'payment_confirmation.php'; // No need for transaction_id in URL now
-                                } else {
-                                    alert('Gagal menyiapkan pembayaran. Silakan coba lagi. ' + (data.message || ''));
-                                    console.error('Server response error:', data.message);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error setting session or fetching:', error);
-                                alert('Terjadi kesalahan teknis. Silakan coba lagi.');
-                            });
-                        } else {
-                            alert('Transaction ID tidak ditemukan pada tombol.');
-                        }
-                    });
-                    button.dataset.listenerAttached = true; // Mark listener as attached
-                }
+            // --- Payment Confirmation Handler ---
+            document.querySelectorAll('.btn-pay-now').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const transactionId = this.dataset.transactionId;
+                    if (transactionId) {
+                        fetch('set_transaction_session.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'transaction_id=' + transactionId
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) window.location.href = 'payment_confirmation.php';
+                            else showToast(data.message, 'error');
+                        })
+                        .catch(err => showToast('Terjadi kesalahan teknis.', 'error'));
+                    }
+                });
             });
+
+            // Profile Popup
+            const profilePopup = document.getElementById('profileCompletionPopup');
+            if (profilePopup) {
+                setTimeout(() => profilePopup.style.display = 'flex', 1000);
+                profilePopup.querySelector('.close-popup-btn').onclick = () => profilePopup.style.display = 'none';
+            }
+
+            // Initial cart listener
+            attachCartItemListeners();
         });
     </script>
 </body>

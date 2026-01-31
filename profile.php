@@ -21,14 +21,10 @@ if ($stmt = $pdo->prepare($sql_select_user)) {
     if ($stmt->execute()) {
         if ($stmt->rowCount() == 1) {
             $user_data = $stmt->fetch(PDO::FETCH_ASSOC);
-            // Pastikan nilai yang diambil dari database tidak NULL sebelum diassign
-            $full_name = $user_data['full_name'] ?? ''; // Jika NULL, gunakan string kosong
+            $full_name = $user_data['full_name'] ?? '';
             $email = $user_data['email'] ?? '';
             $phone_number = $user_data['phone_number'] ?? '';
             $address = $user_data['address'] ?? '';
-            // Username dari session sudah string, jadi tidak perlu ?? '' di sini
-            // Tapi jika Anda ambil dari $user_data['username'], pastikan juga pakai ?? ''
-            // $username = $user_data['username'] ?? ''; // Opsional jika username bisa NULL
         } else {
             $error_message = "Data pengguna tidak ditemukan.";
         }
@@ -36,6 +32,12 @@ if ($stmt = $pdo->prepare($sql_select_user)) {
         $error_message = "Terjadi kesalahan saat mengambil data pengguna.";
     }
     unset($stmt);
+}
+
+// Cek profile completeness untuk UI header
+$profile_incomplete = false;
+if (empty($full_name) || empty($email) || empty($phone_number) || empty($address)) {
+    $profile_incomplete = true;
 }
 
 // Proses update profile jika form disubmit
@@ -55,7 +57,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $email_err = "Format email tidak valid.";
     } else {
         $email = trim($_POST["email"]);
-        // Cek apakah email sudah terdaftar pada user lain (kecuali diri sendiri)
         $sql_check_email = "SELECT id FROM users WHERE email = :email AND id != :id";
         if ($stmt_check = $pdo->prepare($sql_check_email)) {
             $stmt_check->bindParam(":email", $param_email, PDO::PARAM_STR);
@@ -100,8 +101,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             if ($stmt_update->execute()) {
                 $success_message = "Profil berhasil diperbarui!";
-                // Update session jika full_name digunakan di header (optional)
                 $_SESSION['full_name'] = $full_name;
+                // Re-check completeness
+                $profile_incomplete = false; 
             } else {
                 $error_message = "Terjadi kesalahan saat memperbarui profil Anda.";
             }
@@ -109,7 +111,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
-unset($pdo); // Tutup koneksi database
+unset($pdo);
 ?>
 
 <!DOCTYPE html>
@@ -120,681 +122,517 @@ unset($pdo); // Tutup koneksi database
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile Saya | WEARNITY</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
     <style>
-        /* General Styles & Resets (Updated for Montserrat and consistent background) */
-        body {
-            font-family: 'Montserrat', sans-serif;
+        :root {
+            --primary-color: #0f172a;
+            --secondary-color: #6366f1;
+            --accent-color: #f59e0b;
+            --background-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f0f2f5; /* Consistent soft background */
-            color: #333;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--background-color);
+            color: var(--text-primary);
             line-height: 1.6;
-            overflow-x: hidden;
-            padding-top: 70px; /* Consistent padding-top for fixed header */
+            padding-top: 120px;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, .logo-text, .logo strong {
+            font-family: var(--font-display);
         }
 
         a {
             text-decoration: none;
             color: inherit;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Header / Navigation Bar (Copied from dashboard.php for consistency) */
+        /* Header */
         header {
-            background-color: #ffffff;
-            padding: 15px 50px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 1400px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            z-index: 100;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            box-sizing: border-box;
+            padding: 0 30px;
+            z-index: 1000;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: var(--shadow-lg);
         }
 
-        /* Logo Text Styling (Copied from dashboard.php) */
         .logo strong {
-            font-size: 28px;
-            color: #2c3e50; /* Darker color for logo text */
-            letter-spacing: 1px;
-            font-weight: 700;
-            font-family: 'Montserrat', sans-serif; /* Ensure Montserrat font here */
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: var(--primary-color);
+            text-transform: uppercase;
         }
 
         .nav-links {
+            display: flex;
+            gap: 20px;
             list-style: none;
             margin: 0;
             padding: 0;
-            display: flex;
-            gap: 40px;
         }
 
-        .nav-links li a {
-            font-size: 16px;
-            color: #555;
-            transition: all 0.3s ease;
+        .nav-links a {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 13.5px;
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 5px 0;
+            padding: 10px 20px;
+            border-radius: 100px;
         }
 
-        .nav-links li a i {
-            font-size: 14px;
-            color: #888;
-            transition: color 0.3s ease;
-        }
-
-        .nav-links li a:hover,
-        .nav-links li a.active {
-            color: #007bff;
-        }
-
-        .nav-links li a:hover i,
-        .nav-links li a.active i {
-            color: #007bff;
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--secondary-color);
+            background: rgba(99, 102, 241, 0.08);
         }
 
         .nav-icons {
             display: flex;
-            gap: 25px;
-            position: relative;
+            gap: 12px;
+            align-items: center;
         }
 
         .nav-icons .icon-btn {
-            font-size: 22px;
-            color: #777;
-            cursor: pointer;
-            transition: color 0.3s ease;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: var(--background-color);
+            font-size: 16px;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            position: relative;
         }
 
         .nav-icons .icon-btn:hover {
-            color: #007bff;
+            background: var(--primary-color);
+            color: white;
+            transform: scale(1.05);
         }
 
-        /* Profile Dropdown (Copied from dashboard.php) */
+        .notification-badge-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .profile-icon-container {
+            position: relative;
+            padding-bottom: 10px;
+            margin-bottom: -10px;
+        }
+
         .profile-dropdown {
             position: absolute;
-            top: 45px;
+            top: 50px;
             right: 0;
-            background-color: #fff;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
+            width: 220px;
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--border-color);
             display: none;
-            width: 180px;
+            animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             overflow: hidden;
-            animation: fadeIn 0.2s ease-out forwards;
-        }
-
-        .profile-dropdown.show {
-            display: block;
-        }
-
-        .profile-dropdown ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .profile-dropdown ul li a {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 15px;
-            color: #444;
-            transition: background-color 0.3s ease, color 0.3s ease;
-            font-size: 15px;
-        }
-
-        .profile-dropdown ul li a i {
-            color: #777;
-            font-size: 16px;
-        }
-
-        .profile-dropdown ul li a:hover {
-            background-color: #f5f5f5;
-            color: #007bff;
-        }
-
-        .profile-dropdown ul li a:hover i {
-            color: #007bff;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Shopping Cart Sidebar Styles (Copied from dashboard.php) */
-        .cart-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            padding: 8px;
             z-index: 1001;
-            display: none;
         }
 
-        .cart-sidebar {
-            font-family: 'Montserrat', sans-serif;
-            position: fixed;
-            top: 0;
-            right: -400px;
-            width: 350px;
-            height: 100%;
-            background-color: #fff;
-            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.25);
-            z-index: 1002;
-            transition: right 0.3s ease-in-out;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .cart-sidebar.open {
-            right: 0;
-        }
-
-        .cart-header {
-            padding: 20px 25px;
-            border-bottom: 1px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #fcfcfc;
-        }
-
-        .cart-header h3 {
-            margin: 0;
-            font-size: 24px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .close-cart-btn {
-            background: none;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            color: #777;
-            padding: 5px;
-            line-height: 1;
-            transition: color 0.2s ease;
-        }
-
-        .close-cart-btn:hover {
-            color: #333;
-        }
-
-        .cart-items-list {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 25px;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .cart-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #f0f0f0;
-            border-radius: 10px;
-            background-color: #fff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            transition: box-shadow 0.2s ease;
-        }
-
-        .cart-item:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .cart-item img {
-            width: 70px;
-            height: 70px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-right: 15px;
-            flex-shrink: 0;
-        }
-
-        .cart-item .item-details {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .cart-item .item-name {
-            font-weight: 600;
-            font-size: 1.05em;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .cart-item .quantity-controls {
+        .dropdown-warning {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 1em;
-            color: #555;
-        }
-
-        .cart-item .qty-btn {
-            background-color: #f0f2f5;
-            border: 1px solid #ddd;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-            font-size: 1.1em;
-            color: #555;
-        }
-
-        .cart-item .qty-btn:hover {
-            background-color: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-
-        .cart-item .qty-btn i {
-            font-size: 0.9em;
-        }
-
-        .cart-item .item-quantity {
-            font-weight: 500;
-            color: #333;
-        }
-
-        .cart-item .item-actions {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            margin-left: 15px;
-            flex-shrink: 0;
-        }
-
-        .cart-item .item-price {
+            padding: 8px 14px;
+            margin: 4px 8px 8px;
+            background: #fff7ed;
+            color: #c2410c;
+            font-size: 11px;
             font-weight: 700;
-            color: #007bff;
-            font-size: 1.2em;
-            margin-bottom: 8px;
-            white-space: nowrap;
+            border-radius: 8px;
+            border: 1px solid #ffedd5;
         }
 
-        .cart-item .remove-item-btn {
-            background: none;
-            border: none;
-            color: #dc3545;
-            cursor: pointer;
-            font-size: 1em;
-            transition: color 0.2s ease;
-            padding: 5px;
-        }
-
-        .cart-item .remove-item-btn:hover {
-            color: #c82333;
-        }
-
-        .cart-summary {
-            border-top: 1px solid #e0e0e0;
-            padding: 25px;
-            background-color: #fcfcfc;
+        .profile-dropdown ul li a {
+            padding: 10px 14px;
+            color: var(--text-primary);
             display: flex;
-            justify-content: space-between;
+            gap: 12px;
             align-items: center;
-        }
-
-        .cart-summary .total-price {
-            font-size: 1.4em;
-            font-weight: 700;
-            color: #333;
-            display: flex;
-            flex-direction: column;
-            line-height: 1.2;
-        }
-
-        .cart-summary .total-price span:first-child {
-            font-size: 0.8em;
-            color: #777;
+            font-size: 14px;
             font-weight: 500;
+            border-radius: var(--radius-md);
         }
 
-        .cart-summary .total-price span:last-child {
-            color: #007bff;
+        .profile-dropdown ul li a:hover {
+            background: var(--background-color);
+            color: var(--secondary-color);
         }
 
-        .checkout-btn {
-            background-color: #007bff;
-            color: white;
-            padding: 18px;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 60px;
-            height: 60px;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+        .profile-icon-container:hover .profile-dropdown {
+            display: block;
         }
 
-        .checkout-btn:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4);
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .empty-cart-message {
-            text-align: center;
-            color: #777;
-            margin-top: 50px;
-            font-size: 1.1em;
+        /* Profile Container */
+        .profile-container {
+            max-width: 800px;
+            margin: 0 auto 80px;
             padding: 0 20px;
         }
-        /* End of Shopping Cart Sidebar Styles */
 
-        /* Main Content (Profile Specific Styles) */
-        .container {
-            max-width: 700px;
-            margin: 40px auto;
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        .page-header {
+            text-align: center;
+            margin-bottom: 50px;
         }
 
-        h2 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #333;
-            font-weight: 700; /* Consistent with other page titles */
+        .page-header h1 {
+            font-size: 3rem;
+            color: var(--primary-color);
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .profile-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: 50px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .profile-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 35px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 20px;
+        }
+
+        .profile-title i {
+            color: var(--secondary-color);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
-        label {
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        .form-group label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 600; /* Consistent with other forms */
-            color: #444; /* Consistent with other forms */
-            font-size: 15px; /* Consistent with other forms */
+            margin-bottom: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-primary);
         }
 
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        textarea {
-            width: calc(100% - 22px); /* Adjusted for 10px padding + 1px border on each side */
-            padding: 12px 15px; /* Consistent with other forms */
-            border: 1px solid #ddd;
-            border-radius: 8px; /* Consistent with other forms */
-            font-size: 16px;
-            box-sizing: border-box; /* Crucial for consistent width */
-            transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Consistent */
-        }
-        input[type="text"]:focus,
-        input[type="email"]:focus,
-        input[type="tel"]:focus,
-        textarea:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); /* Consistent */
-            outline: none;
-        }
-
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .btn-submit {
-            background-color: #007bff; /* Consistent primary button color */
-            color: white;
-            padding: 15px 25px; /* Consistent padding */
-            border: none;
-            border-radius: 8px; /* Consistent border-radius */
-            cursor: pointer;
-            font-size: 18px; /* Consistent font size */
+        .form-group input, .form-group textarea {
             width: 100%;
-            transition: background-color 0.3s ease, transform 0.2s ease; /* Consistent animation */
-            font-weight: 600; /* Consistent font-weight */
+            padding: 16px 22px;
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            background: #f8fafc;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            color: var(--text-primary);
         }
 
-        .btn-submit:hover {
-            background-color: #0056b3; /* Consistent hover color */
-            transform: translateY(-2px); /* Consistent hover effect */
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Consistent hover shadow */
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: var(--secondary-color);
+            outline: none;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
 
-        .alert {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 1em;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .form-group input.readonly {
+            background: #f1f5f9;
+            cursor: not-allowed;
+            color: #94a3b8;
         }
 
         .invalid-feedback {
-            color: red;
-            font-size: 0.9em;
-            margin-top: 5px;
+            color: #ef4444;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 8px;
             display: block;
         }
 
-        .username-field {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-        }
-
-        /* Footer (Copied from dashboard.php for consistency) */
-        footer {
-            background-color: #2c3e50; /* Dark color consistent with your design */
-            color: #ecf0f1; /* Light text for contrast */
-            padding: 20px 20px; /* Reduced padding for a smaller look */
-            text-align: center;
-            font-size: 0.9em; /* Slightly smaller font size for copyright */
-            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1); /* Subtle top shadow */
+        .submit-btn {
+            width: 100%;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 18px;
+            border: none;
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 80px; /* Reduced minimum height */
-            margin-top: 50px; /* Keep margin from main content */
+            gap: 12px;
+            box-shadow: var(--shadow-lg);
+            margin-top: 20px;
         }
 
-        footer p {
+        .submit-btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.25);
+        }
+
+        .simple-footer {
+            background: #111111;
+            color: #6b7280;
+            padding: 25px 7%;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: auto;
+        }
+
+        .simple-footer p {
+            font-size: 0.85rem;
             margin: 0;
-            font-weight: 500;
             letter-spacing: 0.5px;
         }
 
-        .footer-social {
-            margin-top: 15px; /* Reduced margin top for social icons */
+        /* Toast & Sidebars Structure */
+        #toast-container { position: fixed; bottom: 30px; left: 30px; z-index: 9999; }
+        .toast { background: var(--primary-color); color: white; padding: 16px 28px; border-radius: 16px; display: flex; align-items: center; gap: 12px; margin-top: 10px; animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1); font-weight: 600; border: 1px solid rgba(255,255,255,0.1); box-shadow: var(--shadow-xl); }
+        .toast.fade-out { opacity: 0; transform: translateY(10px); transition: 0.5s; }
+        @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .cart-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); z-index: 3000; display: none; }
+        .cart-sidebar { position: fixed; top: 0; right: -450px; width: 450px; height: 100%; background: #ffffff; backdrop-filter: blur(20px); box-shadow: -15px 0 50px rgba(0,0,0,0.15); z-index: 3001; transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; }
+        .cart-sidebar.open { right: 0; }
+
+        /* Cart UI Internal (Matched to Screenshot) */
+        .cart-header { 
+            padding: 35px 40px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .cart-header h3 { 
+            font-size: 1.8rem; 
+            font-weight: 800; 
+            color: #0f172a; 
+            font-family: var(--font-display);
+            letter-spacing: -0.5px;
+            margin: 0;
+        }
+
+        .close-cart-btn { 
+            background: #f1f5f9; 
+            border: none; 
+            width: 38px; 
+            height: 38px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 18px; 
+            cursor: pointer; 
+            color: #64748b; 
+            transition: all 0.3s; 
+        }
+
+        .close-cart-btn:hover { background: #fee2e2; color: #ef4444; }
+
+        .cart-items-list { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 40px; 
             display: flex;
-            gap: 15px; /* Reduced gap between icons */
+            flex-direction: column;
+            gap: 25px;
         }
 
-        .footer-social a {
-            color: #ecf0f1;
-            font-size: 20px; /* Slightly smaller social icons */
-            transition: color 0.3s ease, transform 0.2s ease;
+        .cart-item { 
+            display: flex; 
+            gap: 20px; 
+            padding-bottom: 25px; 
+            border-bottom: 1px solid #f1f5f9; 
+            align-items: center; 
         }
 
-        .footer-social a:hover {
-            color: #007bff;
-            transform: translateY(-2px); /* Subtle hover effect */
+        .cart-item img { 
+            width: 85px; 
+            height: 110px; 
+            object-fit: cover; 
+            border-radius: 14px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
         }
 
+        .item-details { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .item-name { font-weight: 700; font-size: 1.05rem; color: #0f172a; }
+        
+        .quantity-controls { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            background: #f8fafc; 
+            padding: 5px 12px; 
+            border-radius: 100px; 
+            width: fit-content; 
+        }
 
-        /* Responsive Adjustments (Copied from dashboard.php for consistency) */
-        @media (max-width: 992px) {
-            header {
-                padding: 15px 30px;
-            }
-            .nav-links {
-                gap: 25px;
-            }
-            .container {
-                margin: 30px auto;
-                padding: 25px;
-            }
-            footer {
-                padding: 15px 15px;
-            }
-            .footer-social {
-                margin-top: 10px;
-                gap: 10px;
-            }
-            .footer-social a {
-                font-size: 18px;
-            }
+        .qty-btn { 
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            width: 26px; 
+            height: 26px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 10px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+        }
+
+        .qty-btn:hover { background: #0f172a; color: white; border-color: #0f172a; }
+        .item-quantity { font-weight: 700; font-size: 0.9rem; min-width: 22px; text-align: center; }
+
+        .item-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+        .item-price { font-weight: 800; color: #0f172a; font-size: 1rem; }
+        .remove-item-btn { color: #cbd5e1; background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: all 0.3s; }
+        .remove-item-btn:hover { color: #ef4444; }
+
+        .cart-summary { 
+            padding: 40px; 
+            background: #ffffff; 
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .total-price { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px; 
+        }
+
+        .total-price span:first-child { 
+            color: #64748b; 
+            font-weight: 600; 
+            font-size: 1.05rem; 
+        }
+
+        .total-price span:last-child { 
+            color: #0f172a; 
+            font-weight: 800; 
+            font-size: 1.8rem; 
+            letter-spacing: -0.5px;
+        }
+
+        .checkout-btn { 
+            width: 100%; 
+            background: #0f172a; 
+            color: white; 
+            padding: 22px; 
+            border-radius: 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            text-decoration: none; 
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
+        }
+
+        .checkout-btn i {
+            font-size: 1.5rem;
+        }
+
+        .checkout-btn:hover { 
+            background: #000;
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
         }
 
         @media (max-width: 768px) {
-            body {
-                padding-top: 130px; /* Adjust if header layout changes significantly */
-            }
-            header {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 15px 20px;
-            }
-            .logo { /* Add margin to separate from nav-links */
-                margin-bottom: 15px; 
-            }
-            .nav-links {
-                margin-top: 0; /* Reset margin from header flex-direction */
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 15px;
-            }
-            .nav-links li {
-                width: 100%;
-                text-align: center;
-            }
-            .nav-links li a {
-                justify-content: center;
-            }
-            .nav-icons {
-                margin-top: 15px;
-                width: 100%;
-                justify-content: center;
-            }
-            .profile-dropdown {
-                top: auto;
-                bottom: -5px; /* Drop up from bottom on mobile */
-                left: 50%;
-                transform: translateX(-50%) translateY(-100%);
-            }
-            /* Cart sidebar responsive styles - if this page has one */
-            .cart-sidebar {
-                width: 100%;
-                right: -100%;
-            }
-            .cart-sidebar.open {
-                width: 100%;
-            }
-            .cart-items-list {
-                padding: 20px;
-            }
-            .cart-item {
-                flex-wrap: wrap;
-                justify-content: center;
-                text-align: center;
-            }
-            .cart-item img {
-                margin-right: 0;
-                margin-bottom: 10px;
-            }
-            .cart-item .item-details,
-            .cart-item .item-actions {
-                width: 100%;
-                align-items: center;
-                text-align: center;
-            }
-            .cart-item .quantity-controls {
-                justify-content: center;
-            }
-            .cart-summary {
-                flex-direction: column;
-                padding: 20px;
-            }
-            .cart-summary .total-price,
-            .checkout-btn {
-                width: 100%;
-                max-width: 250px;
-            }
-            .checkout-btn {
-                margin-top: 15px;
-            }
-
-            .container {
-                margin: 20px;
-                padding: 20px;
-            }
-            .btn-submit {
-                font-size: 16px;
-                padding: 12px 20px;
-            }
-            footer {
-                padding: 15px 15px;
-                min-height: 70px;
-            }
-            footer p {
-                font-size: 0.8em;
-            }
-            .footer-social {
-                margin-top: 10px;
-                gap: 10px;
-            }
-            .footer-social a {
-                font-size: 16px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .logo strong {
-                font-size: 24px;
-            }
-            .nav-links li a {
-                font-size: 15px;
-                gap: 5px;
-            }
-            .nav-icons .icon-btn {
-                font-size: 20px;
-            }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full-width { grid-column: span 1; }
+            .page-header h1 { font-size: 2.5rem; }
+            .nav-links { display: none; }
+            .profile-card { padding: 30px; }
+            .cart-sidebar { width: 100%; right: -100%; }
         }
     </style>
 </head>
@@ -813,11 +651,24 @@ unset($pdo); // Tutup koneksi database
                 <li><a href="transaction_history.php"><i class="fas fa-receipt"></i> Riwayat Transaksi</a></li>
             </ul>
         </nav>
-        <div class="nav-icons">
-            <a href="#" class="icon-btn" id="cartIcon"><i class="fas fa-shopping-cart"></i></a>
+        <div class="nav-icons" style="position: relative;">
+            <a href="#" class="icon-btn" id="cartIcon">
+                <i class="fas fa-shopping-cart"></i>
+                <span class="notification-badge-dot"></span>
+            </a>
             <div class="profile-icon-container">
-                <a href="#" class="icon-btn" id="profileIcon"><i class="fas fa-user"></i></a>
+                <a href="profile.php" class="icon-btn" id="profileIcon">
+                    <i class="fas fa-user"></i>
+                    <?php if ($profile_incomplete): ?>
+                        <span class="notification-badge-dot"></span>
+                    <?php endif; ?>
+                </a>
                 <div class="profile-dropdown" id="profileDropdown">
+                    <?php if ($profile_incomplete): ?>
+                        <div class="dropdown-warning">
+                            <i class="fas fa-exclamation-triangle"></i> Profil Belum Lengkap
+                        </div>
+                    <?php endif; ?>
                     <ul>
                         <li><a href="profile.php" class="active"><i class="fas fa-user-circle"></i> Profil Saya</a></li>
                         <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
@@ -828,291 +679,161 @@ unset($pdo); // Tutup koneksi database
     </header>
 
     <main>
-        <div class="container">
-            <h2>Profil Pengguna</h2>
-            <?php
-            if (!empty($success_message)) {
-                echo '<div class="alert alert-success">' . htmlspecialchars($success_message) . '</div>';
-            }
-            if (!empty($error_message)) {
-                echo '<div class="alert alert-danger">' . htmlspecialchars($error_message) . '</div>';
-            }
-            ?>
-            <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username); ?>" class="username-field" readonly>
-                    <small style="color: #777;">Username tidak dapat diubah.</small>
+        <div class="profile-container">
+            <div class="page-header">
+                <h1>Profil Gue</h1>
+                <p>Kelola data diri lo biar belanja makin sat-set!</p>
+            </div>
+
+            <div class="profile-card">
+                <div class="profile-title">
+                    <i class="fas fa-user-edit"></i>
+                    <span>Informasi Akun</span>
                 </div>
-                <div class="form-group">
-                    <label for="full_name">Nama Lengkap</label>
-                    <input type="text" id="full_name" name="full_name" value="<?php echo htmlspecialchars($full_name); ?>">
-                    <span class="invalid-feedback"><?php echo htmlspecialchars($full_name_err); ?></span>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
-                    <span class="invalid-feedback"><?php echo htmlspecialchars($email_err); ?></span>
-                </div>
-                <div class="form-group">
-                    <label for="phone_number">Nomor Telepon</label>
-                    <input type="tel" id="phone_number" name="phone_number" value="<?php echo htmlspecialchars($phone_number); ?>">
-                    <span class="invalid-feedback"><?php echo htmlspecialchars($phone_number_err); ?></span>
-                </div>
-                <div class="form-group">
-                    <label for="address">Alamat</label>
-                    <textarea id="address" name="address"><?php echo htmlspecialchars($address); ?></textarea>
-                    <span class="invalid-feedback"><?php echo htmlspecialchars($address_err); ?></span>
-                </div>
-                <div class="form-group">
-                    <button type="submit" class="btn-submit">Update Profil</button>
-                </div>
-            </form>
+
+                <?php if ($success_message): ?>
+                    <div class="toast success" style="position: static; margin-bottom: 25px; animation: none;">
+                        <i class="fas fa-check-circle"></i>
+                        <span><?php echo $success_message; ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($error_message): ?>
+                    <div class="toast danger" style="position: static; margin-bottom: 25px; animation: none; background: #ef4444;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span><?php echo $error_message; ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <form action="profile.php" method="POST">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" value="<?php echo htmlspecialchars($username); ?>" class="readonly" readonly>
+                            <small style="color: #94a3b8; font-size: 0.8rem; margin-top: 5px; display: block;">Username bersifat permanen ya!</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Lengkap</label>
+                            <input type="text" name="full_name" value="<?php echo htmlspecialchars($full_name); ?>" placeholder="Masukkan nama keren lo" required>
+                            <span class="invalid-feedback"><?php echo $full_name_err; ?></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Aktif</label>
+                            <input type="email" name="email" value="<?php echo htmlspecialchars($email); ?>" placeholder="nama@email.com" required>
+                            <span class="invalid-feedback"><?php echo $email_err; ?></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Nomor Telepon (WhatsApp)</label>
+                            <input type="tel" name="phone_number" value="<?php echo htmlspecialchars($phone_number); ?>" placeholder="08xxxxxxxxxx" required>
+                            <span class="invalid-feedback"><?php echo $phone_number_err; ?></span>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Alamat Pengiriman Lengkap</label>
+                            <textarea name="address" rows="4" placeholder="Jl. Kenangan No. 123, Blok A, Jakarta Selatan..." required><?php echo htmlspecialchars($address); ?></textarea>
+                            <span class="invalid-feedback"><?php echo $address_err; ?></span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-save"></i>
+                        Simpan Perubahan
+                    </button>
+                </form>
+            </div>
         </div>
     </main>
 
-    <footer>
-        <p>Copyright © 2025 - Wearnity by THANKSINSOMNIA</p>
-        <div class="footer-social">
-            <a href="#" target="_blank" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
-            <a href="#" target="_blank" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
-            <a href="#" target="_blank" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
-            <a href="#" target="_blank" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-        </div>
+    <footer class="simple-footer">
+        <p>&copy; 2025 Wearnity by THANKSINSOMNIA. All Rights Reserved.</p>
     </footer>
 
+    <div id="toast-container"></div>
     <div class="cart-overlay" id="cartOverlay"></div>
-    <div class="cart-sidebar" id="cartSidebar">
-        </div>
+    <div class="cart-sidebar" id="cartSidebar"></div>
 
     <script>
-    // JavaScript untuk Profile Dropdown
-    const profileIcon = document.getElementById('profileIcon');
-    const profileDropdown = document.getElementById('profileDropdown');
+        document.addEventListener('DOMContentLoaded', function() {
+            // Navigation Active State
+            const currentPath = window.location.pathname.split('/').pop();
+            document.querySelectorAll('.nav-links li a').forEach(link => {
+                const linkPath = link.getAttribute('href').split('/').pop().split('#')[0];
+                if (linkPath === currentPath) link.classList.add('active');
+            });
 
-    profileIcon.addEventListener('click', function(event) {
-        event.preventDefault();
-        profileDropdown.classList.toggle('show');
-    });
+            // Toast Logic
+            function showToast(msg, type = 'success') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i><span>${msg}</span>`;
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.add('fade-out');
+                    setTimeout(() => toast.remove(), 500);
+                }, 3000);
+            }
 
-    document.addEventListener('click', function(event) {
-        if (!profileIcon.contains(event.target) && !profileDropdown.contains(event.target)) {
-            profileDropdown.classList.remove('show');
-        }
-    });
+            // Shopping Cart Logic
+            const cartSidebar = document.getElementById('cartSidebar');
+            const cartOverlay = document.getElementById('cartOverlay');
+            const cartIcon = document.getElementById('cartIcon');
 
-    // Script untuk menambahkan kelas 'active' pada link navigasi yang sedang aktif
-    document.addEventListener('DOMContentLoaded', function() {
-        const currentPath = window.location.pathname.split('/').pop();
-        const navLinks = document.querySelectorAll('.nav-links li a');
-
-        navLinks.forEach(link => {
-            const linkHref = link.getAttribute('href');
-            // Check if linkHref is not null or empty before splitting
-            const linkPath = linkHref ? linkHref.split('/').pop().split('#')[0] : ''; // Handle links with # and empty href
-
-            if (currentPath === 'profile.php' && linkPath === 'profile.php') {
-                link.classList.add('active');
-            } else if (currentPath === '' || currentPath === 'dashboard.php') {
-                // Special handling for dashboard link which might be just "dashboard.php" or "#"
-                if (linkHref === 'dashboard.php' || linkHref === '#') {
-                    link.classList.add('active');
+            function toggleCartSidebar() {
+                if (cartSidebar && cartOverlay) {
+                    cartSidebar.classList.toggle('open');
+                    cartOverlay.style.display = cartSidebar.classList.contains('open') ? 'block' : 'none';
+                    document.body.style.overflow = cartSidebar.classList.contains('open') ? 'hidden' : '';
+                    if (cartSidebar.classList.contains('open')) loadCartContent();
                 }
-            } else if (linkPath === currentPath) {
-                link.classList.add('active');
+            }
+
+            if (cartIcon) cartIcon.addEventListener('click', (e) => { e.preventDefault(); toggleCartSidebar(); });
+            if (cartOverlay) cartOverlay.addEventListener('click', toggleCartSidebar);
+
+            function loadCartContent() {
+                fetch('_cart_content.php').then(r => r.text()).then(html => {
+                    cartSidebar.innerHTML = html;
+                    attachCartItemListeners();
+                });
+            }
+
+            function attachCartItemListeners() {
+                const closeBtn = document.querySelector('#cartSidebar .close-cart-btn');
+                if (closeBtn) closeBtn.onclick = toggleCartSidebar;
+
+                document.querySelectorAll('#cartSidebar .qty-btn').forEach(btn => {
+                    btn.onclick = function() {
+                        const pid = this.closest('.cart-item').dataset.productId;
+                        const qtyEl = this.parentNode.querySelector('.item-quantity');
+                        let newQty = this.dataset.action === 'plus' ? parseInt(qtyEl.textContent) + 1 : parseInt(qtyEl.textContent) - 1;
+                        if (newQty <= 0) { if (confirm('Hapus item?')) updateCartItem(pid, 0); }
+                        else updateCartItem(pid, newQty);
+                    };
+                });
+
+                document.querySelectorAll('#cartSidebar .remove-item-btn').forEach(btn => {
+                    btn.onclick = function() {
+                        if (confirm('Hapus item?')) updateCartItem(this.closest('.cart-item').dataset.productId, 0);
+                    };
+                });
+
+                const checkoutBtn = document.getElementById('checkoutBtn');
+                if (checkoutBtn) checkoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = 'order_details.php'; };
+            }
+
+            function updateCartItem(pid, qty) {
+                fetch('cart_actions.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=update_quantity&product_id=${pid}&quantity=${qty}`
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        loadCartContent();
+                        showToast(qty === 0 ? 'Item dihapus' : 'Keranjang diperbarui');
+                    }
+                });
             }
         });
-
-
-        // --- Logika Keranjang Belanja (Shopping Cart Logic) ---
-        // Ensure these elements exist in your HTML, especially for cart functionality
-        const cartSidebar = document.getElementById('cartSidebar');
-        const cartOverlay = document.getElementById('cartOverlay');
-        const cartIcon = document.getElementById('cartIcon');
-        // cartContentContainer merujuk pada elemen sidebar itu sendiri di mana konten akan dimuat
-        const cartContentContainer = document.getElementById('cartSidebar');
-
-        // Fungsi untuk membuka/menutup sidebar keranjang
-        function toggleCartSidebar() {
-            if (cartSidebar && cartOverlay) { // Defensive check
-                cartSidebar.classList.toggle('open');
-                cartOverlay.style.display = cartSidebar.classList.contains('open') ? 'block' : 'none';
-                // Mencegah scroll body saat sidebar terbuka
-                document.body.style.overflow = cartSidebar.classList.contains('open') ? 'hidden' : '';
-                if (cartSidebar.classList.contains('open')) {
-                    loadCartContent(); // Muat ulang konten keranjang saat dibuka
-                }
-            } else {
-                console.warn("Cart elements not found on profile.php. Cart functionality might be limited.");
-                // Optionally, redirect to a dedicated cart page if sidebar isn't setup
-                // window.location.href = 'cart.php'; 
-            }
-        }
-
-        // Event listener untuk ikon keranjang di header
-        if (cartIcon) { // Pastikan ikon keranjang ada
-            cartIcon.addEventListener('click', function(event) {
-                event.preventDefault();
-                toggleCartSidebar();
-            });
-        }
-
-        // Fungsi untuk memuat konten keranjang via AJAX
-        function loadCartContent() {
-            if (!cartContentContainer) return; // Defensive check
-            fetch('_cart_content.php')
-                .then(response => {
-                    if (!response.ok) {
-                        // Attempt to read text for more detailed error
-                        return response.text().then(text => {
-                            throw new Error('Network response for cart content was not ok. Status: ' + response.status + ', Response: ' + text);
-                        });
-                    }
-                    return response.text();
-                })
-                .then(html => {
-                    cartContentContainer.innerHTML = html;
-                    // Sangat penting: pasang kembali event listener pada elemen baru setelah konten dimuat
-                    attachCartItemListeners();
-                })
-                .catch(error => {
-                    console.error('Error loading cart content:', error);
-                    cartContentContainer.innerHTML = '<p class="empty-cart-message" style="color: red;">Gagal memuat keranjang. Silakan coba lagi. Detail: ' + error.message + '</p>';
-                });
-        }
-
-        // Fungsi untuk menambah produk ke keranjang (mungkin tidak dipanggil langsung di halaman ini, tapi diperlukan oleh sidebar)
-        function addToCart(productId, quantity = 1) {
-            fetch('cart_actions.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `action=add&product_id=${productId}&quantity=${quantity}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => { throw new Error(text); });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        loadCartContent(); // Refresh cart after adding
-                    } else {
-                        alert('Gagal menambah produk: ' + data.message);
-                    }
-                })
-                .catch(error => console.error('Error adding to cart:', error));
-        }
-
-        // Fungsi untuk memperbarui kuantitas item di keranjang
-        function updateCartItemQuantity(productId, newQuantity) {
-            fetch('cart_actions.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `action=update_quantity&product_id=${productId}&quantity=${newQuantity}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => { throw new Error(text); });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        loadCartContent(); // Muat ulang keranjang setelah update
-                    } else {
-                        alert('Gagal memperbarui kuantitas: ' + data.message);
-                    }
-                })
-                .catch(error => console.error('Error updating quantity:', error));
-        }
-
-        // Fungsi untuk menghapus item dari keranjang
-        function removeFromCart(productId) {
-            fetch('cart_actions.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `action=remove&product_id=${productId}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => { throw new Error(text); });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        loadCartContent(); // Muat ulang keranjang setelah hapus
-                    } else {
-                        alert('Gagal menghapus produk: ' + data.message);
-                    }
-                })
-                .catch(error => console.error('Error removing from cart:', error));
-        }
-
-
-        // Fungsi ini akan dipanggil setelah konten keranjang dimuat ulang oleh AJAX
-        // Fungsi ini memasang event listener pada elemen-elemen di dalam sidebar keranjang
-        function attachCartItemListeners() {
-            // Event listener for close button in cart sidebar
-            const closeCartBtn = document.querySelector('#cartSidebar .close-cart-btn'); // Target tombol di dalam sidebar
-            if (closeCartBtn) {
-                closeCartBtn.addEventListener('click', function() {
-                    toggleCartSidebar(); // Panggil fungsi toggle untuk menutup sidebar
-                });
-            } else {
-                console.warn("Close cart button not found in sidebar after AJAX load.");
-            }
-
-            // Pasang event listener untuk tombol kuantitas (+/-)
-            document.querySelectorAll('#cartSidebar .qty-btn').forEach(button => {
-                button.onclick = function() {
-                    const productId = this.closest('.cart-item').dataset.productId;
-                    let currentQty = parseInt(this.closest('.quantity-controls').querySelector('.item-quantity').textContent);
-                    let newQty;
-                    if (this.dataset.action === 'plus') {
-                        newQty = currentQty + 1;
-                    } else { // minus
-                        newQty = currentQty - 1;
-                    }
-                    if (newQty <= 0) {
-                        if (confirm('Apakah Anda yakin ingin menghapus produk ini dari keranjang?')) {
-                            removeFromCart(productId);
-                        }
-                    } else {
-                        updateCartItemQuantity(productId, newQty);
-                    }
-                };
-            });
-
-            // Pasang event listener untuk tombol hapus item
-            document.querySelectorAll('#cartSidebar .remove-item-btn').forEach(button => {
-                button.onclick = function() {
-                    if (confirm('Apakah Anda yakin ingin menghapus produk ini dari keranjang?')) {
-                        const productId = this.closest('.cart-item').dataset.productId;
-                        removeFromCart(productId);
-                    }
-                };
-            });
-
-            // Event listener untuk tombol Checkout di dalam sidebar keranjang
-            const checkoutBtn = document.getElementById('checkoutBtn');
-            if (checkoutBtn) { // Pastikan elemen ditemukan sebelum menambahkan event listener
-                checkoutBtn.addEventListener('click', function(event) {
-                    event.preventDefault(); // Penting: Mencegah perilaku default dari tag <a> (navigasi langsung)
-                    window.location.href = 'order_details.php'; // Arahkan ke halaman order_details.php
-                });
-            }
-        }
-    });
     </script>
 </body>
-
 </html>
